@@ -7,8 +7,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/gopxl/beep"
