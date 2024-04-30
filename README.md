@@ -13,3 +13,6 @@ go run codecat.go --interval 2
 --interval int        Print interval (ms) (default 50)
 --sound-file string   Path to sound file
 ```
+
+## demo
+https://github.com/GZJ/codecat/assets/6212200/7cfe4ecd-ae15-4a5a-8c6b-17b4845a0c94
