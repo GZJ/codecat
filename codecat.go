@@ -72,6 +72,9 @@ func (p *Printer) Print() error {
 //go:embed sfx.wav
 var sfx []byte
 
+//go:embed codecat.go
+var self []byte
+
 type SoundPlayer struct {
 	reader   io.ReadCloser
 	streamer beep.StreamSeekCloser
@@ -114,7 +117,7 @@ func main() {
 		interval  int
 	)
 
-	flag.StringVar(&codeFile, "code-file", "codecat.go", "Path to code file")
+	flag.StringVar(&codeFile, "code-file", "", "Path to code file")
 	flag.StringVar(&soundFile, "sound-file", "", "Path to sound file")
 	flag.StringVar(&color, "color", "green", "Print color")
 	flag.IntVar(&interval, "interval", 50, "Print interval (ms)")
@@ -128,40 +131,49 @@ func main() {
 
 	//soundPlaer
 	var (
-		readCloser io.ReadCloser
-		err        error
+		sfxReadCloser io.ReadCloser
+		err           error
 	)
 	if soundFile == "" {
 		reader := bytes.NewReader(sfx)
-		readCloser = io.NopCloser(reader)
+		sfxReadCloser = io.NopCloser(reader)
 	} else {
-		readCloser, err = os.Open(soundFile)
+		sfxReadCloser, err = os.Open(soundFile)
 		if err != nil {
 			log.Fatal("Error opening file:", err)
 			return
 		}
 	}
 
-	soundPlayer, err := NewSoundPlayer(readCloser)
+	soundPlayer, err := NewSoundPlayer(sfxReadCloser)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer soundPlayer.Close()
 
 	//printer
-	var r *bufio.Reader
+	var (
+		r              *bufio.Reader
+		selfReadCloser io.ReadCloser
+	)
 
 	if !isPipe(os.Stdin) {
 		r = bufio.NewReader(os.Stdin)
 	} else {
-		file := codeFile
-		f, err := os.Open(file)
-		if err != nil {
-			log.Fatal("Error opening file:", err)
-			return
+		if codeFile == "" {
+			reader := bytes.NewReader(self)
+			selfReadCloser = io.NopCloser(reader)
+			r = bufio.NewReader(selfReadCloser)
+		} else {
+			file := codeFile
+			f, err := os.Open(file)
+			if err != nil {
+				log.Fatal("Error opening file:", err)
+				return
+			}
+			defer f.Close()
+			r = bufio.NewReader(f)
 		}
-		defer f.Close()
-		r = bufio.NewReader(f)
 	}
 
 	printer := NewPrinter(r)
@@ -172,7 +184,6 @@ func main() {
 	if err != nil {
 		log.Fatal("Error printing content:", err)
 	}
-
 }
 
 func isPipe(file *os.File) bool {
