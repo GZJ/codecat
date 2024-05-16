@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	_ "embed"
 	"fmt"
@@ -35,7 +36,7 @@ var Palette = map[string]string{
 }
 
 type Printer struct {
-	reader      io.Reader
+	reader      io.RuneReader
 	Interval    int
 	Color       string
 	SoundPlayer interface {
@@ -43,23 +44,23 @@ type Printer struct {
 	}
 }
 
-func NewPrinter(reader io.Reader) *Printer {
+func NewPrinter(reader io.RuneReader) *Printer {
 	return &Printer{
 		reader: reader,
 	}
 }
 
 func (p *Printer) Print() error {
-	content, err := io.ReadAll(p.reader)
-	if err != nil {
-		return err
-	}
-
 	color := Palette[p.Color]
 
-	for _, char := range string(content) {
-		fmt.Printf(color, string(char))
-		if char != ' ' && char != '\t' && char != '\n' && char != '\r' {
+	for {
+		rn, _, err := p.reader.ReadRune()
+		if err != nil {
+			break
+		}
+
+		fmt.Printf(color, string(rn))
+		if rn != ' ' && rn != '\t' && rn != '\n' && rn != '\r' {
 			p.SoundPlayer.Play()
 		}
 		time.Sleep(time.Duration(p.Interval) * time.Millisecond)
@@ -148,15 +149,22 @@ func main() {
 	defer soundPlayer.Close()
 
 	//printer
-	file := codeFile
-	f, err := os.Open(file)
-	if err != nil {
-		log.Fatal("Error opening file:", err)
-		return
-	}
-	defer f.Close()
+	var r *bufio.Reader
 
-	printer := NewPrinter(f)
+	if !isPipe(os.Stdin) {
+		r = bufio.NewReader(os.Stdin)
+	} else {
+		file := codeFile
+		f, err := os.Open(file)
+		if err != nil {
+			log.Fatal("Error opening file:", err)
+			return
+		}
+		defer f.Close()
+		r = bufio.NewReader(f)
+	}
+
+	printer := NewPrinter(r)
 	printer.SoundPlayer = soundPlayer
 	printer.Color = color
 	printer.Interval = interval
@@ -165,4 +173,12 @@ func main() {
 		log.Fatal("Error printing content:", err)
 	}
 
+}
+
+func isPipe(file *os.File) bool {
+	info, err := file.Stat()
+	if err != nil {
+		return false
+	}
+	return (info.Mode() & os.ModeCharDevice) != 0
 }
